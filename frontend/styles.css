@@ -540,20 +540,6 @@ body {
     background: rgba(102, 126, 234, 0.1);
 }
 
-.prediction-icon {
-    font-size: 2rem;
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    justify-content: space-between;
-    margin-bottom: var(--spacing-xs);
-}
-
-.confidence-label {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-}
 
 .confidence-value {
     font-size: 1rem;
