@@ -688,21 +688,6 @@ body {
     overflow: hidden;
 }
 
-.prob-fill {
-    height: 100%;
-    font-size: 0.8rem;
-}
-
-.footer-tech {
-    margin-top: var(--spacing-xs);
-    font-size: 0.75rem;
-    opacity: 0.7;
-}
-
-/* Animations */
-.fade-in {
-    animation: fadeIn 0.6s ease-out;
-}
 
 @keyframes fadeIn {
     from {
