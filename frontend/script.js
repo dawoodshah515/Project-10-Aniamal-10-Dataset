@@ -1,11 +1,27 @@
-// Animals-10 Classifier - Standalone Frontend with Embedded Demo
-// Works without backend - perfect for GitHub Pages
+// Animals-10 Classifier - TensorFlow.js Version
+// Uses MobileNet for real AI predictions in the browser!
 
-const API_URL = 'http://localhost:8000'; // Fallback to local if available
+const API_URL = 'http://localhost:8000';
 const CLASSES = ['butterfly', 'cat', 'chicken', 'cow', 'dog',
     'elephant', 'horse', 'sheep', 'spider', 'squirrel'];
 
+// Mapping MobileNet classes to our 10 animals
+const ANIMAL_MAPPING = {
+    'butterfly': ['butterfly', 'monarch', 'sulphur butterfly', 'lycaenid'],
+    'cat': ['tabby', 'tiger cat', 'persian cat', 'siamese cat', 'egyptian cat', 'lynx'],
+    'chicken': ['hen', 'cock', 'rooster'],
+    'cow': ['ox', 'cow'],
+    'dog': ['golden retriever', 'german shepherd', 'labrador', 'terrier', 'beagle', 'collie', 'dalmatian', 'poodle', 'pug', 'husky', 'chihuahua', 'malamute', 'doberman', 'rottweiler', 'boxer', 'bulldog', 'corgi', 'sheepdog'],
+    'elephant': ['indian elephant', 'african elephant', 'tusker'],
+    'horse': ['sorrel', 'zebra', 'horse'], // zebra often confused with horse in simple models
+    'sheep': ['ram', 'ewe', 'bighorn', 'sheep'],
+    'spider': ['tarantula', 'garden spider', 'black and gold garden spider', 'barn spider', 'wolf spider'],
+    'squirrel': ['fox squirrel', 'squirrel']
+};
+
 let selectedFile = null;
+let tfModel = null;
+let isModelLoading = false;
 
 // DOM Elements
 const dropZone = document.getElementById('dropZone');
@@ -20,19 +36,28 @@ const resultsSection = document.getElementById('resultsSection');
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
+    loadTFModel(); // Start loading model immediately
 });
 
+async function loadTFModel() {
+    try {
+        console.log('Loading MobileNet model...');
+        isModelLoading = true;
+        tfModel = await mobilenet.load();
+        isModelLoading = false;
+        console.log('MobileNet model loaded!');
+    } catch (error) {
+        console.error('Error loading model:', error);
+        isModelLoading = false;
+    }
+}
+
 function setupEventListeners() {
-    // Drop zone events
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', handleDragOver);
     dropZone.addEventListener('dragleave', handleDragLeave);
     dropZone.addEventListener('drop', handleDrop);
-
-    // File input
     fileInput.addEventListener('change', handleFileSelect);
-
-    // Buttons
     removeBtn.addEventListener('click', removeImage);
     predictBtn.addEventListener('click', classifyImage);
 }
@@ -50,47 +75,34 @@ function handleDragLeave(e) {
 function handleDrop(e) {
     e.preventDefault();
     dropZone.classList.remove('drag-over');
-
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-        handleFile(files[0]);
-    }
+    if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
 }
 
 function handleFileSelect(e) {
-    const files = e.target.files;
-    if (files.length > 0) {
-        handleFile(files[0]);
-    }
+    if (e.target.files.length > 0) handleFile(e.target.files[0]);
 }
 
 function handleFile(file) {
-    // Validate file type
     if (!file.type.startsWith('image/')) {
         showNotification('Please select an image file', 'error');
         return;
     }
-
-    // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
         showNotification('File size must be less than 10MB', 'error');
         return;
     }
-
     selectedFile = file;
     displayPreview(file);
 }
 
 function displayPreview(file) {
     const reader = new FileReader();
-
     reader.onload = (e) => {
         imagePreview.src = e.target.result;
         previewContainer.style.display = 'block';
         predictBtn.disabled = false;
         dropZone.style.display = 'none';
     };
-
     reader.readAsDataURL(file);
 }
 
@@ -107,159 +119,100 @@ function removeImage() {
 async function classifyImage() {
     if (!selectedFile) return;
 
-    // Show loader
     loaderOverlay.classList.add('active');
 
+    // Update loader text if model is still loading
+    if (isModelLoading) {
+        document.querySelector('.loader-text').textContent = "Loading AI Model...";
+    }
+
     try {
-        // Try backend first
-        const predictions = await tryBackendPrediction();
-        displayResults(predictions);
+        // Wait for model if needed
+        if (!tfModel) {
+            await loadTFModel();
+        }
+        document.querySelector('.loader-text').textContent = "Analyzing image...";
+
+        // Try backend first (optional, for local dev)
+        try {
+            const predictions = await tryBackendPrediction();
+            displayResults(predictions);
+        } catch (e) {
+            // Use TensorFlow.js
+            console.log('Using TensorFlow.js model');
+            const predictions = await tfPrediction();
+            displayResults(predictions, true);
+        }
     } catch (error) {
-        // Fallback to client-side demo
-        console.log('Backend unavailable, using client-side demo');
-        const predictions = await clientSidePrediction();
-        displayResults(predictions, true);
+        console.error(error);
+        showNotification('Classification failed', 'error');
     } finally {
         loaderOverlay.classList.remove('active');
+        document.querySelector('.loader-text').textContent = "Analyzing image...";
     }
 }
 
 async function tryBackendPrediction() {
     const formData = new FormData();
     formData.append('file', selectedFile);
-
     const response = await fetch(`${API_URL}/predict`, {
         method: 'POST',
         body: formData
     });
-
-    if (!response.ok) {
-        throw new Error('Backend unavailable');
-    }
-
+    if (!response.ok) throw new Error('Backend unavailable');
     const data = await response.json();
     return data.all_predictions;
 }
 
-async function clientSidePrediction() {
-    // Simulate processing time
-    await new Promise(resolve => setTimeout(resolve, 800));
+async function tfPrediction() {
+    if (!tfModel) throw new Error('Model not loaded');
 
-    // Analyze image
-    const imageData = await getImageData(selectedFile);
-    const predictions = analyzeImage(imageData);
+    // Get predictions from MobileNet (returns top 3 imagenet classes)
+    const imgElement = document.getElementById('imagePreview');
+    const rawPredictions = await tfModel.classify(imgElement, 5);
 
-    return predictions;
-}
+    console.log('Raw MobileNet predictions:', rawPredictions);
 
-async function getImageData(file) {
-    return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = 64;
-                canvas.height = 64;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, 64, 64);
-                const imageData = ctx.getImageData(0, 0, 64, 64);
-                resolve(imageData);
-            };
-            img.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
+    // Map MobileNet classes to our 10 animals
+    let scores = {};
+    CLASSES.forEach(c => scores[c] = 0.01); // Base score
+
+    rawPredictions.forEach(pred => {
+        const className = pred.className.toLowerCase();
+        const probability = pred.probability;
+
+        // Check against our mapping
+        for (const [animal, keywords] of Object.entries(ANIMAL_MAPPING)) {
+            if (keywords.some(k => className.includes(k))) {
+                scores[animal] += probability;
+            }
+        }
     });
-}
 
-function analyzeImage(imageData) {
-    const pixels = imageData.data;
-    let r = 0, g = 0, b = 0;
-
-    // Calculate average colors
-    for (let i = 0; i < pixels.length; i += 4) {
-        r += pixels[i];
-        g += pixels[i + 1];
-        b += pixels[i + 2];
-    }
-
-    const pixelCount = pixels.length / 4;
-    r /= pixelCount;
-    g /= pixelCount;
-    b /= pixelCount;
-
-    const brightness = (r + g + b) / 3;
-    const colorRange = Math.max(r, g, b) - Math.min(r, g, b);
-
-    // Calculate variance for edge detection
-    let variance = 0;
-    for (let i = 0; i < pixels.length; i += 4) {
-        const gray = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
-        variance += Math.pow(gray - brightness, 2);
-    }
-    variance = Math.sqrt(variance / pixelCount);
-
-    // Score each class
-    const scores = {};
-
-    // Butterfly: colorful, high variance
-    scores.butterfly = (colorRange > 60 ? 0.4 : 0) + (variance > 40 ? 0.2 : 0) + 0.05;
-
-    // Cat: medium colors, varied patterns
-    scores.cat = (brightness > 80 && brightness < 180 ? 0.3 : 0) + (variance > 45 ? 0.2 : 0) + 0.05;
-
-    // Chicken: white/light colors
-    scores.chicken = (brightness > 150 ? 0.4 : 0) + (colorRange < 70 ? 0.3 : 0) + 0.05;
-
-    // Cow: high contrast
-    scores.cow = (colorRange > 80 ? 0.3 : 0) + (variance > 50 ? 0.2 : 0) + 0.05;
-
-    // Dog: brown/tan tones
-    scores.dog = (r > g && g > b && brightness > 100 && brightness < 160 ? 0.5 : 0) + (r - b > 30 ? 0.2 : 0) + 0.05;
-
-    // Elephant: gray tones
-    scores.elephant = (Math.abs(r - g) < 20 && Math.abs(g - b) < 20 ? 0.4 : 0) + (brightness > 80 && brightness < 140 ? 0.3 : 0) + 0.05;
-
-    // Horse: brown/dark
-    scores.horse = (r > g && brightness < 130 ? 0.3 : 0) + (variance > 40 ? 0.2 : 0) + 0.05;
-
-    // Sheep: white/cream, fluffy
-    scores.sheep = (brightness > 160 ? 0.4 : 0) + (variance > 35 ? 0.3 : 0) + 0.05;
-
-    // Spider: dark, high contrast
-    scores.spider = (brightness < 100 ? 0.4 : 0) + (variance > 55 ? 0.2 : 0) + 0.05;
-
-    // Squirrel: brown/orange
-    scores.squirrel = (r > 120 && g > 80 && b < 100 ? 0.4 : 0) + (brightness > 100 && brightness < 150 ? 0.3 : 0) + 0.05;
-
-    // Normalize
-    const total = Object.values(scores).reduce((a, b) => a + b, 0);
-    const predictions = CLASSES.map(cls => ({
+    // Normalize scores
+    let total = Object.values(scores).reduce((a, b) => a + b, 0);
+    let finalPredictions = CLASSES.map(cls => ({
         class: cls,
         confidence: scores[cls] / total
     }));
 
-    return predictions.sort((a, b) => b.confidence - a.confidence);
+    return finalPredictions.sort((a, b) => b.confidence - a.confidence);
 }
 
-function displayResults(predictions, isDemo = false) {
-    // Show results section
+function displayResults(predictions, isClientSide = false) {
     resultsSection.style.display = 'block';
     resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-    // Top prediction
     const topPred = predictions[0];
     document.getElementById('predictedClass').textContent = topPred.class;
     document.getElementById('confidenceValue').textContent =
         `${(topPred.confidence * 100).toFixed(1)}%`;
 
-    // Animate confidence bar
     const confidenceFill = document.getElementById('confidenceFill');
     setTimeout(() => {
         confidenceFill.style.width = `${topPred.confidence * 100}%`;
     }, 100);
 
-    // All predictions
     const predictionsGrid = document.getElementById('predictionsGrid');
     predictionsGrid.innerHTML = '';
 
@@ -277,23 +230,19 @@ function displayResults(predictions, isDemo = false) {
                 </div>
             </div>
         `;
-
         predictionsGrid.appendChild(item);
     });
 
-    // Show demo notification if using client-side
-    if (isDemo) {
-        showNotification('Using client-side demo (backend not available)', 'info');
+    if (isClientSide) {
+        showNotification('Using Browser AI (TensorFlow.js)', 'info');
     }
 }
 
 function showNotification(message, type = 'success') {
-    // Create notification element
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
     notification.textContent = message;
 
-    // Style
     Object.assign(notification.style, {
         position: 'fixed',
         top: '20px',
@@ -312,8 +261,6 @@ function showNotification(message, type = 'success') {
     });
 
     document.body.appendChild(notification);
-
-    // Auto remove
     setTimeout(() => {
         notification.style.animation = 'slideOutRight 0.3s ease-out';
         setTimeout(() => notification.remove(), 300);
@@ -324,25 +271,12 @@ function showNotification(message, type = 'success') {
 const style = document.createElement('style');
 style.textContent = `
     @keyframes slideInRight {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
     }
-    
     @keyframes slideOutRight {
-        from {
-            transform: translateX(0);
-            opacity: 1;
-        }
-        to {
-            transform: translateX(100%);
-            opacity: 0;
-        }
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
     }
 `;
 document.head.appendChild(style);
