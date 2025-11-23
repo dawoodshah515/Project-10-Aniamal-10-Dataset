@@ -85,48 +85,58 @@
                 <button class="btn-predict" id="predictBtn" disabled>
                     <span class="btn-text">Classify Image</span>
                     <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" <p class="loader-subtext">
-                            AI model processing</p>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M10 12H7v4h3v-4z" />
+                    </svg>
+                </button>
             </div>
-    </div>
+        </section>
 
-    <!-- Results Section -->
-    <section class="results-section" id="resultsSection" style="display: none;">
-        <div class="glass-card results-card">
-            <h2 class="section-title">Classification Results</h2>
-
-            <!-- Top Prediction -->
-            <div class="top-prediction" id="topPrediction">
-                <div class="prediction-icon">🎯</div>
-                <div class="prediction-content">
-                    <p class="prediction-label">Detected Animal</p>
-                    <h3 class="prediction-class" id="predictedClass">-</h3>
-                    <div class="confidence-container">
-                        <span class="confidence-label">Confidence</span>
-                        <span class="confidence-value" id="confidenceValue">0%</span>
-                    </div>
-                    <div class="confidence-bar">
-                        <div class="confidence-fill" id="confidenceFill"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- All Predictions -->
-            <div class="all-predictions">
-                <h3 class="predictions-title">All Class Probabilities</h3>
-                <div class="predictions-grid" id="predictionsGrid">
-                    <!-- Dynamically populated -->
-                </div>
+        <!-- Loader -->
+        <div class="loader-overlay" id="loaderOverlay">
+            <div class="loader-content">
+                <div class="spinner"></div>
+                <p class="loader-text">Analyzing image...</p>
+                <p class="loader-subtext">AI model processing</p>
             </div>
         </div>
-    </section>
 
+        <!-- Results Section -->
+        <section class="results-section" id="resultsSection" style="display: none;">
+            <div class="glass-card results-card">
+                <h2 class="section-title">Classification Results</h2>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <p>Built with ❤️ using CNN-LSTM Deep Learning | Animals-10 Dataset</p>
-        <p class="footer-tech">TensorFlow • Keras • FastAPI • Vanilla JS</p>
-    </footer>
+                <!-- Top Prediction -->
+                <div class="top-prediction" id="topPrediction">
+                    <div class="prediction-icon">🎯</div>
+                    <div class="prediction-content">
+                        <p class="prediction-label">Detected Animal</p>
+                        <h3 class="prediction-class" id="predictedClass">-</h3>
+                        <div class="confidence-container">
+                            <span class="confidence-label">Confidence</span>
+                            <span class="confidence-value" id="confidenceValue">0%</span>
+                        </div>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" id="confidenceFill"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- All Predictions -->
+                <div class="all-predictions">
+                    <h3 class="predictions-title">All Class Probabilities</h3>
+                    <div class="predictions-grid" id="predictionsGrid">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Built with ❤️ using CNN-LSTM Deep Learning | Animals-10 Dataset</p>
+            <p class="footer-tech">TensorFlow • Keras • FastAPI • Vanilla JS</p>
+        </footer>
 
     </div>
 
